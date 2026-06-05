@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARワインルーレット</title>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  
+  <style>
+    /* 画面下部に表示するスピンボタンのスタイル */
+    #spin-button {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      padding: 15px 40px;
+      font-size: 20px;
+      font-weight: bold;
+      background-color: #e63946;
+      color: white;
+      border: none;
+      border-radius: 30px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      cursor: pointer;
+      display: none; /* マーカー認識までは非表示 */
+    }
+    #spin-button:active {
+      transform: translateX(-50%) scale(0.95);
+    }
+    /* 結果表示用のアラート */
+    #result-display {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999;
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-family: sans-serif;
+      display: none;
+    }
+  </style>
+</head>
+
+<body style="margin: 0; overflow: hidden;">
+
+  <div id="result-display">マーカーをかざしてね！</div>
+  <button id="spin-button">ルーレットを回す！</button>
+
+  <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+    
+    <a-assets></a-assets>
+
+    <a-marker preset="hiro" id="wine-marker">
+      
+      <a-entity rotation="-90 0 0" position="0 0 0">
+        
+        <a-cylinder id="roulette-wheel" 
+                    position="0 0 0" 
+                    radius="1.2" 
+                    height="0.1" 
+                    color="#f1faee"
+                    segments-radial="8">
+          <a-sphere position="0 0.1 -1" radius="0.15" color="#9b2226"></a-sphere> <a-sphere position="0.7 0.1 -0.7" radius="0.15" color="#e63946"></a-sphere> <a-sphere position="1 0.1 0" radius="0.15" color="#ffb703"></a-sphere> <a-sphere position="0.7 0.1 0.7" radius="0.15" color="#ae2012"></a-sphere> <a-sphere position="0 0.1 1" radius="0.15" color="#005f73"></a-sphere> <a-sphere position="-0.7 0.1 0.7" radius="0.15" color="#0a9396"></a-sphere> <a-sphere position="-1 0.1 0" radius="0.15" color="#94d2bd"></a-sphere> <a-sphere position="-0.7 0.1 -0.7" radius="0.15" color="#ee9b00"></a-sphere> </a-cylinder>
+
+        <a-cone position="0 0.1 -1.4" radius-bottom="0.1" height="0.3" rotation="0 0 180" color="#1d3557"></a-cone>
+
+      </a-entity>
+      
+    </a-marker>
+
+    <a-entity camera></a-entity>
+    
+  </a-scene>
+
+  <script>
+    const marker = document.getElementById('wine-marker');
+    const wheel = document.getElementById('roulette-wheel');
+    const spinBtn = document.getElementById('spin-button');
+    const resultDisplay = document.getElementById('result-display');
+
+    let isSpinning = false;
+    let currentRotation = 0;
+
+    // ワインのリスト（1番上の赤から時計回り）
+    const wineList = [
+      "1. フルーティーな赤ワイン（カベルネ）",
+      "8. すっきり辛口白ワイン（シャルドネ）",
+      "7. 華やかなロゼワイン",
+      "6. 軽やかな白ワイン（リースリング）",
+      "5. 濃厚な赤ワイン（メルロー）",
+      "4. 深みのある赤ワイン（マルベック）",
+      "3. 爽やかな白ワイン（ソーヴィニヨン・ブラン）",
+      "2. まろやかな赤ワイン（ピノ・ノワール）"
+    ];
+
+    // マーカーを見つけた時・見失った時のUI制御
+    marker.addEventListener('markerFound', () => {
+      spinBtn.style.display = 'block';
+      resultDisplay.style.display = 'block';
+      resultDisplay.innerText = "ボタンを押してルーレットを回そう！";
+    });
+
+    marker.addEventListener('markerLost', () => {
+      spinBtn.style.display = 'none';
+      resultDisplay.style.display = 'none';
+    });
+
+    // スピンボタンが押された時の処理
+    spinBtn.addEventListener('click', () => {
+      if (isSpinning) return; // 回っている最中は無効
+      
+      isSpinning = true;
+      spinBtn.disabled = true;
+      resultDisplay.innerText = "抽選中...";
+
+      // 何回転させるか ＋ 最終的にどの角度で止めるか（ランダム）
+      const extraRotation = Math.floor(Math.random() * 360); 
+      const totalSpin = 1800 + extraRotation; // 最低5回転(1800度)させる
+      
+      currentRotation += totalSpin;
+      
+      // A-Frameのオブジェクトをアニメーション（回転）させる
+      // イージング（easeOutQuad）を使って徐々に減速させます
+      wheel.setAttribute('animation', {
+        property: 'rotation',
+        to: `0 ${currentRotation} 0`,
+        dur: 4000, // 4秒かけて回る
+        easing: 'easeOutQuad'
+      });
+
+      // 4秒後に止まった時の処理
+      setTimeout(() => {
+        isSpinning = false;
+        spinBtn.disabled = false;
+
+        // 止まった角度から当選したワインを計算
+        const finalAngle = (currentRotation % 360);
+        // 8等分（1つあたり45度）のどこに位置するか
+        const index = Math.floor(((finalAngle + 22.5) % 360) / 45);
+        
+        // 結果を表示
+        resultDisplay.innerText = `おすすめ：${wineList[index]}\n手元のQRコードを読み込んでね！`;
+      }, 4000);
+    });
+  </script>
+
+</body>
+</html>

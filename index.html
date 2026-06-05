@@ -7,12 +7,34 @@
   <title>フクロウ ARダンス</title>
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+  <script>
+    // マーカーの検出を検知して動画を制御するA-Frameカスタムコンポーネント
+    AFRAME.registerComponent('video-controls', {
+      init: function () {
+        const marker = this.el;
+        const video = document.getElementById('owl-video');
+
+        // マーカーを認識したとき
+        marker.addEventListener('markerFound', function () {
+          video.play().catch(function(error) {
+            console.log("再生に失敗しました（ユーザー操作がまだありません）:", error);
+          });
+        });
+
+        // マーカーを見失ったとき
+        marker.addEventListener('markerLost', function () {
+          video.pause();
+        });
+      }
+    });
+  </script>
 </head>
 
 <body style="margin: 0; overflow: hidden;">
 
-  <div id="tap-instruction" style="position: fixed; top: 10px; left: 10px; z-index: 999; background: rgba(0,0,0,0.7); color: white; padding: 10px; border-radius: 5px; font-family: sans-serif; font-size: 14px; pointer-events: none;">
-    🚨 画面を1回タップしてから、カメラをHIROマーカーにかざしてね！
+  <div id="tap-instruction" style="position: fixed; top: 10px; left: 10px; z-index: 999; background: rgba(0,0,0,0.8); color: white; padding: 12px; border-radius: 5px; font-family: sans-serif; font-size: 14px; pointer-events: none; line-height: 1.5;">
+    🚨 画面を1回タップして「再生準備」をしてから、<br>カメラをHIROマーカーにかざしてね！
   </div>
 
   <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
@@ -21,7 +43,7 @@
       <video id="owl-video" src="fukurou.mp4" preload="auto" loop="true" playsinline webkit-playsinline crossorigin="anonymous"></video>
     </a-assets>
 
-    <a-marker preset="hiro">
+    <a-marker preset="hiro" video-controls>
       <a-video src="#owl-video" width="1.5" height="1.5" rotation="-90 0 0" position="0 0 0"></a-video>
     </a-marker>
 
@@ -33,14 +55,16 @@
     const video = document.getElementById('owl-video');
     const instruction = document.getElementById('tap-instruction');
 
+    // 画面がタップされたら、動画を一瞬だけplayしてすぐpauseすることで
+    // ブラウザの「動画再生の許可（インタラクション）」を獲得する
     window.addEventListener('click', function () {
-      if (video.paused) {
-        video.play();
-        instruction.style.display = 'none'; // タップされたら案内を消す
-      } else {
-        video.pause();
-      }
-    });
+      video.play().then(() => {
+        video.pause(); // マーカーを見つけるまでは一時停止しておく
+        instruction.style.display = 'none'; // 案内を消す
+      }).catch(err => {
+        console.error("動画の初期化に失敗しました:", err);
+      });
+    }, { once: true }); // イベントは1回だけ実行
   </script>
 
 </body>
